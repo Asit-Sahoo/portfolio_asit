@@ -21,18 +21,21 @@ const Contact = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch("/send", {
+      const response = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL}/send`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(form),
-      });
+      }
+    );
 
       const data = await response.json();
 
       if (data.success) {
-        setStatus("Message Sent Successfully ✅");
+        setStatus("Message Sent Successfully");
 
         setForm({
           name: "",
@@ -40,7 +43,7 @@ const Contact = () => {
           message: "",
         });
       } else {
-        setStatus("Failed To Send Message ❌");
+        setStatus("Failed To Send Message");
       }
     } catch (error) {
       setStatus("Server Error ❌");
