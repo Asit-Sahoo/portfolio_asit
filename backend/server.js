@@ -77,7 +77,7 @@ app.use(express.static(frontendPath));
 
 // ====== React Router FIX ======
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "../portfolio/build", "index.html"));
+  res.sendFile(path.join(__dirname, "portfolio", "dist", "index.html"));
 });
 
 // ====== START SERVER ======
