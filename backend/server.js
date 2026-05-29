@@ -76,8 +76,8 @@ const frontendPath = path.join(__dirname, "dist");
 app.use(express.static(frontendPath));
 
 // ====== React Router FIX ======
-app.get("*", (req, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(__dirname, "../portfolio/build", "index.html"));
 });
 
 // ====== START SERVER ======
