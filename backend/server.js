@@ -1,10 +1,10 @@
 import express from "express";
 import cors from "cors";
-import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -17,17 +17,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ======================
-// DEBUG INFO (Render)
+// RESEND SETUP
 // ======================
-console.log("📁 Server running in:", __dirname);
-console.log("📂 Backend files:", fs.readdirSync(__dirname));
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ======================
 // MIDDLEWARE
 // ======================
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
-}));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "*",
+  })
+);
 
 app.use(express.json());
 
@@ -45,76 +46,63 @@ app.post("/send", async (req, res) => {
   try {
     const { name, email, message } = req.body;
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    const response = await resend.emails.send({
+      from: "Portfolio <onboarding@resend.dev>",
       to: process.env.RECEIVER_EMAIL,
       subject: `New Portfolio Message from ${name}`,
       html: `
-        <h2>New Message</h2>
-        <p><b>Name:</b> ${name}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Message:</b> ${message}</p>
+        <h2>New Portfolio Message</h2>
+
+        <p><strong>Name:</strong> ${name}</p>
+
+        <p><strong>Email:</strong> ${email}</p>
+
+        <p><strong>Message:</strong></p>
+
+        <p>${message}</p>
       `,
     });
 
-    res.json({ success: true, message: "Email sent successfully" });
+    console.log("Email sent:", response);
+
+    res.status(200).json({
+      success: true,
+      message: "Email sent successfully",
+    });
 
   } catch (error) {
-    console.error("❌ Email Error:", error);
-    res.status(500).json({ success: false, message: "Email failed" });
+    console.error("Resend Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Email failed",
+    });
   }
 });
 
 // ======================
-// AUTO DETECT FRONTEND BUILD
+// FRONTEND BUILD PATH
 // ======================
 const possiblePaths = [
   path.join(__dirname, "dist"),
   path.join(__dirname, "portfolio", "dist"),
   path.join(__dirname, "../portfolio/dist"),
-  path.join(__dirname, "../dist"),
 ];
 
-let frontendPath = null;
+let frontendPath = possiblePaths.find((p) => fs.existsSync(p));
 
-for (const p of possiblePaths) {
-  if (fs.existsSync(p)) {
-    frontendPath = p;
-    break;
-  }
-}
-
-console.log("🌐 Frontend detected at:", frontendPath);
-
-// Serve static frontend if found
+// ======================
+// SERVE FRONTEND
+// ======================
 if (frontendPath) {
   app.use(express.static(frontendPath));
+
+  app.get(/.*/, (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+} else {
+  console.log("⚠️ Frontend build folder not found");
 }
-
-// ======================
-// REACT ROUTER FIX (EXPRESS 5 SAFE)
-// ======================
-app.get(/.*/, (req, res) => {
-  const indexPath = frontendPath
-    ? path.join(frontendPath, "index.html")
-    : null;
-
-  console.log("📄 Serving:", indexPath);
-
-  if (indexPath && fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send("Frontend build not found");
-  }
-});
 
 // ======================
 // START SERVER
