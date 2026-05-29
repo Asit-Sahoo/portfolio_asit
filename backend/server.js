@@ -10,27 +10,37 @@ dotenv.config();
 
 const app = express();
 
-// ===== ES MODULE FIX =====
+// ======================
+// ES MODULE FIX
+// ======================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ===== DEBUG: SHOW SERVER LOCATION =====
-console.log("📁 __dirname:", __dirname);
-console.log("📁 Current folder files:", fs.readdirSync(__dirname));
+// ======================
+// DEBUG INFO (Render)
+// ======================
+console.log("📁 Server running in:", __dirname);
+console.log("📂 Backend files:", fs.readdirSync(__dirname));
 
-// ===== MIDDLEWARES =====
+// ======================
+// MIDDLEWARE
+// ======================
 app.use(cors({
   origin: process.env.FRONTEND_URL || "*",
 }));
 
 app.use(express.json());
 
-// ===== API TEST =====
+// ======================
+// API TEST ROUTE
+// ======================
 app.get("/api", (req, res) => {
-  res.send("Portfolio Backend Running...");
+  res.send("Backend is running 🚀");
 });
 
-// ===== EMAIL ROUTE =====
+// ======================
+// EMAIL ROUTE
+// ======================
 app.post("/send", async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -55,19 +65,17 @@ app.post("/send", async (req, res) => {
       `,
     });
 
-    res.json({ success: true, message: "Email sent" });
+    res.json({ success: true, message: "Email sent successfully" });
 
-  } catch (err) {
-    console.error("❌ Email error:", err);
+  } catch (error) {
+    console.error("❌ Email Error:", error);
     res.status(500).json({ success: false, message: "Email failed" });
   }
 });
 
-// ==============================
-// 🔥 FRONTEND PATH (AUTO FIX)
-// ==============================
-
-// possible locations (we detect automatically)
+// ======================
+// AUTO DETECT FRONTEND BUILD
+// ======================
 const possiblePaths = [
   path.join(__dirname, "dist"),
   path.join(__dirname, "portfolio", "dist"),
@@ -84,31 +92,33 @@ for (const p of possiblePaths) {
   }
 }
 
-console.log("🌐 Frontend path detected:", frontendPath);
+console.log("🌐 Frontend detected at:", frontendPath);
 
-// serve static files if found
+// Serve static frontend if found
 if (frontendPath) {
   app.use(express.static(frontendPath));
 }
 
-// ==============================
-// React Router fallback
-// ==============================
-app.get("*", (req, res) => {
+// ======================
+// REACT ROUTER FIX (EXPRESS 5 SAFE)
+// ======================
+app.get(/.*/, (req, res) => {
   const indexPath = frontendPath
     ? path.join(frontendPath, "index.html")
     : null;
 
-  console.log("📄 Serving index.html from:", indexPath);
+  console.log("📄 Serving:", indexPath);
 
   if (indexPath && fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send("Frontend not found. Check build path.");
+    res.status(404).send("Frontend build not found");
   }
 });
 
-// ===== START SERVER =====
+// ======================
+// START SERVER
+// ======================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
