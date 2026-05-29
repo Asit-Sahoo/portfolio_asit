@@ -3,29 +3,34 @@ import cors from "cors";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 
-// ====== FIX __dirname for ES Modules ======
+// ===== ES MODULE FIX =====
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ====== Middlewares ======
+// ===== DEBUG: SHOW SERVER LOCATION =====
+console.log("📁 __dirname:", __dirname);
+console.log("📁 Current folder files:", fs.readdirSync(__dirname));
+
+// ===== MIDDLEWARES =====
 app.use(cors({
   origin: process.env.FRONTEND_URL || "*",
 }));
 
 app.use(express.json());
 
-// ====== API ROUTE ======
+// ===== API TEST =====
 app.get("/api", (req, res) => {
   res.send("Portfolio Backend Running...");
 });
 
-// ====== EMAIL ROUTE ======
+// ===== EMAIL ROUTE =====
 app.post("/send", async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -38,51 +43,74 @@ app.post("/send", async (req, res) => {
       },
     });
 
-    const mailOptions = {
+    await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.RECEIVER_EMAIL,
       subject: `New Portfolio Message from ${name}`,
       html: `
-        <h2>New Hire Me Form Submission</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Message:</strong></p>
-        <p>${message}</p>
+        <h2>New Message</h2>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Message:</b> ${message}</p>
       `,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    res.status(200).json({
-      success: true,
-      message: "Email sent successfully",
     });
 
-  } catch (error) {
-    console.log("Email error:", error);
+    res.json({ success: true, message: "Email sent" });
 
-    res.status(500).json({
-      success: false,
-      message: "Email failed",
-    });
+  } catch (err) {
+    console.error("❌ Email error:", err);
+    res.status(500).json({ success: false, message: "Email failed" });
   }
 });
 
-// ====== SERVE FRONTEND BUILD ======
-// (Vite = dist, CRA = build → change accordingly)
+// ==============================
+// 🔥 FRONTEND PATH (AUTO FIX)
+// ==============================
 
-const frontendPath = path.join(__dirname, "dist");
+// possible locations (we detect automatically)
+const possiblePaths = [
+  path.join(__dirname, "dist"),
+  path.join(__dirname, "portfolio", "dist"),
+  path.join(__dirname, "../portfolio/dist"),
+  path.join(__dirname, "../dist"),
+];
 
-app.use(express.static(frontendPath));
+let frontendPath = null;
 
-// ====== React Router FIX ======
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "portfolio", "dist", "index.html"));
+for (const p of possiblePaths) {
+  if (fs.existsSync(p)) {
+    frontendPath = p;
+    break;
+  }
+}
+
+console.log("🌐 Frontend path detected:", frontendPath);
+
+// serve static files if found
+if (frontendPath) {
+  app.use(express.static(frontendPath));
+}
+
+// ==============================
+// React Router fallback
+// ==============================
+app.get("*", (req, res) => {
+  const indexPath = frontendPath
+    ? path.join(frontendPath, "index.html")
+    : null;
+
+  console.log("📄 Serving index.html from:", indexPath);
+
+  if (indexPath && fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("Frontend not found. Check build path.");
+  }
 });
 
-// ====== START SERVER ======
+// ===== START SERVER =====
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
